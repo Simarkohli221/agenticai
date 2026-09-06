@@ -1,12 +1,12 @@
-from app.db.base import Base
 from app.db.database import engine
+from app.db.base import Base
 
-# Import models so SQLAlchemy knows about them
-from app.models import Entity, Account, Transaction
+from app.models.entity import Entity
+from app.models.account import Account
+from app.models.transaction import Transaction
+from app.models.case import InvestigationCase
 
 
-if __name__ == "__main__":
-    Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
-    print("Database tables created successfully.")
-    print("Database:", engine.url)
+print("Tables created successfully.")
