@@ -45,7 +45,7 @@ def build_investigation_graph():
 
     # End points
     graph.add_edge("generate_report", END)
-    graph.add_edge("human_approval", END)
+    graph.add_edge("human_approval", "generate_report")
 
     # SQLite checkpointer
     connection = sqlite3.connect(

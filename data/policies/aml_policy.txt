@@ -1,0 +1,20 @@
+AML TRANSACTION MONITORING POLICY
+
+Suspicious transaction activity may include unusual transaction amounts,
+rapid movement of funds, transactions involving multiple accounts,
+unusual payment patterns, and activity inconsistent with the expected
+customer profile.
+
+Transactions identified as potentially suspicious must be reviewed
+by an authorized investigator.
+
+High-risk cases require human review before any consequential account
+action is taken.
+
+Investigation records must contain the relevant transaction details,
+risk indicators, supporting policy references, and the investigator's
+decision.
+
+Financial records must not be permanently deleted as part of an
+investigation workflow. Account status changes should preserve the
+historical record.

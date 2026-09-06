@@ -75,23 +75,32 @@ def generate_report_node(state: dict) -> dict:
     policy_results = state.get("policy_results", [])
     risk_analysis = state.get("risk_analysis", {})
 
+    approval_status = state.get("approval_status")
+    risk_level = risk_analysis.get("risk_level")
+
+    if risk_level == "HIGH":
+        if approval_status == "approve":
+            recommendation = "Investigation approved for continued handling."
+        elif approval_status == "reject":
+            recommendation = "Investigation rejected by human reviewer. No consequential action authorized."
+        else:
+            recommendation = "Human review required before consequential action."
+    elif risk_level == "LOW":
+        recommendation = "No immediate escalation required."
+    else:
+        recommendation = "Further review required."
+
     report = {
         "account": customer.get("account_number"),
         "entity": customer.get("entity_name"),
         "bank": customer.get("bank_name"),
         "transaction_count": len(transactions),
-        "risk_level": risk_analysis.get("risk_level"),
+        "risk_level": risk_level,
         "risk_score": risk_analysis.get("risk_score"),
         "risk_indicators": risk_analysis.get("indicators", []),
-        "policies": [
-            policy["policy"]
-            for policy in policy_results
-        ],
-        "recommendation": (
-            "No immediate escalation required."
-            if risk_analysis.get("risk_level") == "LOW"
-            else "Further review required."
-        )
+        "policies": [policy["policy"] for policy in policy_results],
+        "approval_status": approval_status,
+        "recommendation": recommendation,
     }
 
     return {
