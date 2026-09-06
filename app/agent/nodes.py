@@ -3,7 +3,7 @@ from app.tools.customer_tool import get_customer_account
 from app.tools.transaction_tool import get_transactions
 from app.tools.policy_tool import search_policy
 from app.risk.risk_engine import analyze_risk
-
+from app.agent.llm import generate_investigation_summary
 
 def get_customer_node(state: dict) -> dict:
     account_number = state["account_number"]
@@ -82,15 +82,22 @@ def generate_report_node(state: dict) -> dict:
         if approval_status == "approve":
             recommendation = "Investigation approved for continued handling."
         elif approval_status == "reject":
-            recommendation = "Investigation rejected by human reviewer. No consequential action authorized."
+            recommendation = (
+                "Investigation rejected by human reviewer. "
+                "No consequential action authorized."
+            )
         else:
-            recommendation = "Human review required before consequential action."
+            recommendation = (
+                "Human review required before consequential action."
+            )
+
     elif risk_level == "LOW":
         recommendation = "No immediate escalation required."
+
     else:
         recommendation = "Further review required."
 
-    report = {
+    evidence = {
         "account": customer.get("account_number"),
         "entity": customer.get("entity_name"),
         "bank": customer.get("bank_name"),
@@ -98,9 +105,19 @@ def generate_report_node(state: dict) -> dict:
         "risk_level": risk_level,
         "risk_score": risk_analysis.get("risk_score"),
         "risk_indicators": risk_analysis.get("indicators", []),
-        "policies": [policy["policy"] for policy in policy_results],
+        "policies": [
+            policy["policy"]
+            for policy in policy_results
+        ],
         "approval_status": approval_status,
         "recommendation": recommendation,
+    }
+
+    llm_summary = generate_investigation_summary(evidence)
+
+    report = {
+        **evidence,
+        "llm_summary": llm_summary,
     }
 
     return {
