@@ -4,7 +4,7 @@ from app.tools.transaction_tool import get_transactions
 from app.tools.policy_tool import search_policy
 from app.risk.risk_engine import analyze_risk
 from app.agent.query_parser import parse_investigation_request
-from app.agent.llm import generate_investigation_summary
+from app.agent.llm import generate_investigation_summary, generate_policy_answer
 from app.db.database import SessionLocal
 from app.tools.case_tool import create_investigation_case
 from app.tools.audit_tool import create_audit_log
@@ -21,7 +21,12 @@ def parse_request_node(state: dict) -> dict:
         }
 
     return {
-        "account_number": account_number
+        "account_number": account_number,
+        "intent": parsed_request.get("intent", "INVESTIGATE"),
+        "requested_information": parsed_request.get(
+            "requested_information",
+            ["customer", "transactions", "risk", "policy", "report"],
+        ),
     }
 def get_customer_node(state: dict) -> dict:
     account_number = state["account_number"]
@@ -107,10 +112,22 @@ def search_policy_node(state: dict) -> dict:
 
     query = build_policy_query(risk_analysis, transactions)
 
-    policy_results = search_policy(query)
+    try:
+        policy_results = search_policy(query)
+    except Exception as exc:
+        # Policy retrieval failing (e.g. the semantic index has not
+        # been built) must never look like "we searched and found no
+        # relevant policy" - it is a distinct, reportable failure.
+        # generate_report_node/the LLM prompt treat this differently
+        # from an empty (but successful) search.
+        return {
+            "policy_results": [],
+            "policy_search_error": str(exc),
+        }
 
     return {
-        "policy_results": policy_results
+        "policy_results": policy_results,
+        "policy_search_error": None,
     }
 def analyze_risk_node(state: dict) -> dict:
     transactions = state.get("transactions", [])
@@ -136,6 +153,7 @@ def generate_report_node(state: dict) -> dict:
     customer = state.get("customer", {})
     transactions = state.get("transactions", [])
     policy_results = state.get("policy_results", [])
+    policy_search_error = state.get("policy_search_error")
     risk_analysis = state.get("risk_analysis", {})
 
     approval_status = state.get("approval_status")
@@ -185,11 +203,25 @@ def generate_report_node(state: dict) -> dict:
         "policy_evidence_found": bool(policy_evidence),
         "policy_evidence": policy_evidence,
         "policy_citations": policy_citations,
+        "policy_retrieval_unavailable": policy_search_error is not None,
         "approval_status": approval_status,
         "recommendation": recommendation,
     }
 
-    llm_summary = generate_investigation_summary(evidence)
+    try:
+        llm_summary = generate_investigation_summary(evidence)
+    except Exception:
+        # A narrative-generation failure must never be silently
+        # swallowed into a fabricated or misleadingly upbeat report.
+        # All of the deterministic evidence above (risk, policy,
+        # case status) is already complete and unaffected.
+        llm_summary = (
+            "A narrative summary could not be generated due to an "
+            "LLM generation error. The structured evidence in this "
+            "report (risk analysis, policy evidence, and approval "
+            "status) was produced by deterministic backend logic and "
+            "is unaffected."
+        )
 
     report = {
         **evidence,
@@ -231,3 +263,67 @@ def create_case_node(state: dict) -> dict:
 
     finally:
         db.close()
+
+
+def answer_policy_question_node(state: dict) -> dict:
+    """
+    Lightweight path for a POLICY_QUESTION-intent request (see
+    app/agent/planner.py and app/agent/routing.py). Answers a policy
+    question grounded in retrieved policy evidence only - it does
+    NOT run risk analysis, does NOT create an investigation case, and
+    never touches HITL. This is a read-only informational response,
+    not a risk assessment or investigation finding.
+    """
+    customer = state.get("customer", {})
+    user_request = state.get("user_request", "")
+
+    try:
+        policy_results = search_policy(user_request)
+        policy_search_error = None
+    except Exception as exc:
+        policy_results = []
+        policy_search_error = str(exc)
+
+    policy_evidence = [
+        {
+            "policy": policy["policy"],
+            "chunk_id": policy["chunk_id"],
+            "excerpt": policy["content"],
+        }
+        for policy in policy_results
+    ]
+
+    policy_citations = [
+        f"{policy['policy']} (chunk {policy['chunk_id']})"
+        for policy in policy_results
+    ]
+
+    evidence = {
+        "account": customer.get("account_number"),
+        "entity": customer.get("entity_name"),
+        "bank": customer.get("bank_name"),
+        "question": user_request,
+        "policy_evidence_found": bool(policy_evidence),
+        "policy_evidence": policy_evidence,
+        "policy_citations": policy_citations,
+        "policy_retrieval_unavailable": policy_search_error is not None,
+    }
+
+    try:
+        llm_summary = generate_policy_answer(evidence)
+    except Exception:
+        llm_summary = (
+            "A narrative answer could not be generated due to an LLM "
+            "generation error. Any retrieved policy evidence is "
+            "listed above and is unaffected."
+        )
+
+    report = {
+        "status": "POLICY_ANSWER",
+        **evidence,
+        "llm_summary": llm_summary,
+    }
+
+    return {
+        "investigation_report": report
+    }

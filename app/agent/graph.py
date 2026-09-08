@@ -17,7 +17,8 @@ from app.agent.nodes import (
     search_policy_node,
     analyze_risk_node,
     generate_report_node,
-    create_case_node
+    create_case_node,
+    answer_policy_question_node,
 )
 from app.agent.routing import route_by_risk
 from app.agent.approval import human_approval_node
@@ -37,6 +38,7 @@ def build_investigation_graph():
     graph.add_node("parse_request", parse_request_node)
     graph.add_node("handle_error", handle_error_node)
     graph.add_node("create_case", create_case_node)
+    graph.add_node("answer_policy_question", answer_policy_question_node)
 
     # Main investigation flow
     graph.add_edge(START, "parse_request")
@@ -52,14 +54,20 @@ def build_investigation_graph():
 
     graph.add_edge("handle_error", END)
 
+    # Fork on the request's classified intent (see app/agent/planner.py):
+    # a POLICY_QUESTION goes to the lightweight, case-free policy-only
+    # path; everything else goes through the full investigation path.
     graph.add_conditional_edges(
         "get_customer",
         route_after_customer_lookup,
         {
-            "continue": "get_transactions",
+            "full_investigation": "get_transactions",
+            "policy_only": "answer_policy_question",
             "error": "handle_error",
         }
     )
+
+    graph.add_edge("answer_policy_question", END)
 
     # analyze_risk runs before search_policy so the policy query can
     # be derived from the actual risk indicators/level (semantic
