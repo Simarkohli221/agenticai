@@ -5,6 +5,7 @@ from app.db.database import get_db
 from app.models.user import User
 from app.auth.dependencies import require_role
 from app.auth.roles import INVESTIGATOR, SUPERVISOR
+from app.auth.authorization import can_view_case, audit_authorization_denied
 from app.schemas.investigation import (
     InvestigationRequest,
     InvestigationResponse,
@@ -17,6 +18,7 @@ from app.services.approval_service import (
     apply_approval_decision,
     CaseNotFoundError,
     ApprovalNotAllowedError,
+    NotAuthorizedError,
 )
 from app.tools.case_tool import get_case
 
@@ -82,6 +84,25 @@ def read_investigation_case(
             detail="Case not found.",
         )
 
+    # Resource-level authorization, applied after existing RBAC and
+    # after confirming the case exists. Under the current policy any
+    # INVESTIGATOR+ may view any case (no ownership column exists on
+    # investigation_cases), so this is normally a pass-through - but
+    # it is the single, centralized place that decision is made, so
+    # no route can bypass it.
+    if not can_view_case(current_user, case):
+        audit_authorization_denied(
+            db=db,
+            case_id=case_id,
+            actor=current_user,
+            operation="VIEW_CASE",
+            reason="Role is not permitted to view this case.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions for this case.",
+        )
+
     return CaseResponse(**case)
 
 
@@ -103,6 +124,11 @@ def decide_investigation_case(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Case not found.",
+        )
+    except NotAuthorizedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
         )
     except ApprovalNotAllowedError as exc:
         raise HTTPException(

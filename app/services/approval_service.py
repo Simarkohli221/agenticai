@@ -7,6 +7,7 @@ from app.models.case import InvestigationCase
 from app.models.user import User
 from app.tools.case_tool import get_case
 from app.tools.audit_tool import create_audit_log
+from app.auth.authorization import can_approve_case, audit_authorization_denied
 
 PENDING_STATUS = "OPEN"
 CLAIMED_STATUS = "UNDER_REVIEW"
@@ -23,6 +24,10 @@ class CaseNotFoundError(Exception):
 
 class ApprovalNotAllowedError(Exception):
     """Case exists but is not currently eligible for approval/rejection."""
+
+
+class NotAuthorizedError(Exception):
+    """Caller is authenticated but not permitted to act on this case."""
 
 
 def _revert_claim(db: Session, case_id: int) -> None:
@@ -82,6 +87,27 @@ def apply_approval_decision(
 
     if case is None:
         raise CaseNotFoundError()
+
+    # Resource-level authorization (defense-in-depth): the route's
+    # require_role(SUPERVISOR) dependency already blocks non-eligible
+    # roles before this function is ever called, so under normal
+    # operation this branch is unreachable. It exists so a future
+    # code path that calls this service directly - bypassing the
+    # route - cannot approve/reject without independently satisfying
+    # the same policy. This check uses the live database role on the
+    # `actor` object (resolved by get_current_user), never the JWT's
+    # role claim and never anything from the request body.
+    if not can_approve_case(actor, case):
+        audit_authorization_denied(
+            db=db,
+            case_id=case_id,
+            actor=actor,
+            operation="APPROVE_OR_REJECT_CASE",
+            reason="Role is not permitted to approve or reject cases.",
+        )
+        raise NotAuthorizedError(
+            "You are not authorized to approve or reject this case."
+        )
 
     if case["risk_level"] != "HIGH":
         raise ApprovalNotAllowedError(
