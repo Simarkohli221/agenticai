@@ -7,3 +7,7 @@ __pycache__/
 .pytest_cache/
 .idea/
 .vscode/
+
+# Generated, reproducible from data/policies/ via
+# python -m scripts.build_policy_index
+data/processed/

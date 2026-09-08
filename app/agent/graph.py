@@ -61,11 +61,14 @@ def build_investigation_graph():
         }
     )
 
-    graph.add_edge("get_transactions", "search_policy")
-    graph.add_edge("search_policy", "analyze_risk")
+    # analyze_risk runs before search_policy so the policy query can
+    # be derived from the actual risk indicators/level (semantic
+    # RAG), rather than a fixed keyword string.
+    graph.add_edge("get_transactions", "analyze_risk")
+    graph.add_edge("analyze_risk", "search_policy")
 
     # Risk-based routing
-    graph.add_edge("analyze_risk", "create_case")
+    graph.add_edge("search_policy", "create_case")
     graph.add_conditional_edges(
         "create_case",
         route_by_risk,

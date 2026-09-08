@@ -38,13 +38,29 @@ STRICT RULES:
    - recommended next step
 7. If the evidence does not establish something, say that it is not established
    by the available evidence.
+8. The "policy_evidence" list is the ONLY policy text you may reference.
+   Never quote, summarize, or reference any AML/compliance rule not
+   present verbatim in that list. Never invent page numbers - these
+   are plain text files, not paginated documents.
+9. Every policy statement you make MUST be immediately followed by a
+   citation in the exact form "(policy_filename, chunk chunk_id)",
+   using only the policy/chunk_id pairs given in "policy_evidence".
+10. If "policy_evidence_found" is false (the list is empty), you MUST
+    explicitly state that no relevant policy evidence was found for
+    this investigation, in the "Policy Evidence" section, and you
+    must not describe, paraphrase, or imply any policy content in
+    that case.
+11. The "score" field on each policy_evidence item is a semantic
+    similarity score for retrieval ranking only - never describe it
+    as a probability, confidence level, or compliance/approval score.
 
 Provide a concise investigation summary with:
 
 1. Customer/Account Context
 2. Relevant Transaction Activity
 3. Risk Indicators
-4. Relevant Policy
+4. Policy Evidence (cite every claim as described in rule 9, or state
+   plainly that none was found per rule 10)
 5. Recommended Next Step
 
 Use the following evidence:

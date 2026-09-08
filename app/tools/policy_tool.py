@@ -1,31 +1,11 @@
-from pathlib import Path
+from app.rag.policy_rag import search_policy as _semantic_search_policy
 
 
-POLICY_DIR = Path("data/policies")
-
-
-def search_policy(query: str) -> list[dict]:
-    results = []
-
-    query_words = set(query.lower().split())
-
-    for file_path in POLICY_DIR.glob("*.txt"):
-        text = file_path.read_text(encoding="utf-8")
-
-        text_words = set(text.lower().split())
-
-        score = len(query_words.intersection(text_words))
-
-        if score > 0:
-            results.append({
-                "policy": file_path.name,
-                "score": score,
-                "content": text
-            })
-
-    results.sort(
-        key=lambda x: x["score"],
-        reverse=True
-    )
-
-    return results[:5]
+def search_policy(query: str, top_k: int = 5) -> list[dict]:
+    """
+    Retrieve policy chunks relevant to `query` using local semantic
+    search (sentence-transformers + FAISS - see app/rag/policy_rag.py).
+    Preserves the previous keyword-search tool interface: callers
+    that only pass `query` are unaffected.
+    """
+    return _semantic_search_policy(query, top_k=top_k)

@@ -64,13 +64,48 @@ def get_transactions_node(state: dict) -> dict:
         db.close()
 
 
+def build_policy_query(risk_analysis: dict, transactions: list) -> str:
+    """
+    Deterministically derives a semantic policy-search query from
+    the investigation context gathered so far (risk indicators,
+    risk level, transaction volume). Pure Python - no LLM involved,
+    so the query is reproducible and cannot be influenced by
+    prompt-injected text.
+    """
+    risk_level = risk_analysis.get("risk_level", "LOW")
+    indicators = risk_analysis.get("indicators", [])
+
+    indicator_phrases = [
+        indicator.get("description") or indicator.get("type", "")
+        for indicator in indicators
+    ]
+
+    parts = [
+        f"Risk level: {risk_level}.",
+        f"Transaction count: {len(transactions)}.",
+    ]
+
+    if indicator_phrases:
+        parts.append("Risk indicators: " + "; ".join(indicator_phrases) + ".")
+
+    if risk_level == "HIGH":
+        parts.append(
+            "High-risk activity requiring human review and escalation "
+            "before any consequential account action."
+        )
+    elif risk_level == "MEDIUM":
+        parts.append("Elevated activity that may warrant additional review.")
+    else:
+        parts.append("Standard account activity review.")
+
+    return " ".join(parts)
+
+
 def search_policy_node(state: dict) -> dict:
-    query = (
-        "suspicious transaction "
-        "high risk "
-        "human review "
-        "multiple accounts"
-    )
+    risk_analysis = state.get("risk_analysis", {})
+    transactions = state.get("transactions", [])
+
+    query = build_policy_query(risk_analysis, transactions)
 
     policy_results = search_policy(query)
 
@@ -125,6 +160,20 @@ def generate_report_node(state: dict) -> dict:
     else:
         recommendation = "Further review required."
 
+    policy_evidence = [
+        {
+            "policy": policy["policy"],
+            "chunk_id": policy["chunk_id"],
+            "excerpt": policy["content"],
+        }
+        for policy in policy_results
+    ]
+
+    policy_citations = [
+        f"{policy['policy']} (chunk {policy['chunk_id']})"
+        for policy in policy_results
+    ]
+
     evidence = {
         "account": customer.get("account_number"),
         "entity": customer.get("entity_name"),
@@ -133,10 +182,9 @@ def generate_report_node(state: dict) -> dict:
         "risk_level": risk_level,
         "risk_score": risk_analysis.get("risk_score"),
         "risk_indicators": risk_analysis.get("indicators", []),
-        "policies": [
-            policy["policy"]
-            for policy in policy_results
-        ],
+        "policy_evidence_found": bool(policy_evidence),
+        "policy_evidence": policy_evidence,
+        "policy_citations": policy_citations,
         "approval_status": approval_status,
         "recommendation": recommendation,
     }
