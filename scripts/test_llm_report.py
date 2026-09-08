@@ -20,5 +20,5 @@ if __name__ == "__main__":
 
     summary = generate_investigation_summary(evidence)
 
-    print("=== Gemini Investigation Summary ===")
+    print("=== Grok Investigation Summary ===")
     print(summary)

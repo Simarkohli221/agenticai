@@ -5,6 +5,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.agent.state import InvestigationState
 from app.agent.nodes import (
+    create_case_node,
     get_customer_node,
     get_transactions_node,
     search_policy_node,
@@ -34,6 +35,7 @@ graph.add_node("get_customer", get_customer_node)
 graph.add_node("get_transactions", get_transactions_node)
 graph.add_node("search_policy", search_policy_node)
 graph.add_node("force_high_risk", force_high_risk_node)
+graph.add_node("create_case", create_case_node)
 graph.add_node("human_approval", human_approval_node)
 graph.add_node("generate_report", generate_report_node)
 
@@ -44,12 +46,17 @@ graph.add_edge("get_customer", "get_transactions")
 graph.add_edge("get_transactions", "search_policy")
 graph.add_edge("search_policy", "force_high_risk")
 
+# IMPORTANT:
+# The case must be created BEFORE human approval.
+graph.add_edge("force_high_risk", "create_case")
 
-# Risk-based routing
+
+# Route based on risk after the case has been created
 graph.add_conditional_edges(
-    "force_high_risk",
+    "create_case",
     route_by_risk,
     {
+        "low_risk": "generate_report",
         "high_risk": "human_approval",
     }
 )
@@ -57,6 +64,7 @@ graph.add_conditional_edges(
 
 # After human approval
 graph.add_edge("human_approval", "generate_report")
+
 
 # Finish after report generation
 graph.add_edge("generate_report", END)
@@ -76,7 +84,7 @@ if __name__ == "__main__":
 
     config = {
         "configurable": {
-            "thread_id": "high-risk-test-002"
+            "thread_id": "high-risk-case-test-002"
         }
     }
 

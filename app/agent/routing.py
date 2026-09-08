@@ -11,3 +11,11 @@ def route_after_parsing(state: dict) -> str:
         return "error"
 
     return "continue"
+def route_after_customer_lookup(state: dict) -> str:
+    if state.get("error"):
+        return "error"
+
+    if not state.get("customer"):
+        return "error"
+
+    return "continue"

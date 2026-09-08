@@ -5,6 +5,7 @@ if __name__ == "__main__":
     initial_state = {
         "user_request": "Investigate account 8000EBD30 for suspicious activity."
     }
+
     config = {
         "configurable": {
             "thread_id": "test-investigation-001"
@@ -20,6 +21,9 @@ if __name__ == "__main__":
 
     print("\nAccount:")
     print(result["account_number"])
+
+    print("\nCase ID:")
+    print(result.get("case_id"))
 
     print("\nCustomer:")
     print(result["customer"])

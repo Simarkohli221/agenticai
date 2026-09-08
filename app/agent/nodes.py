@@ -7,6 +7,7 @@ from app.agent.query_parser import parse_investigation_request
 from app.agent.llm import generate_investigation_summary
 from app.db.database import SessionLocal
 from app.tools.case_tool import create_investigation_case
+from app.tools.audit_tool import create_audit_log
 def parse_request_node(state: dict) -> dict:
     user_request = state["user_request"]
 
@@ -162,6 +163,18 @@ def create_case_node(state: dict) -> dict:
             account_number=account_number,
             risk_level=risk_analysis["risk_level"],
             risk_score=risk_analysis["risk_score"],
+        )
+
+        create_audit_log(
+            db=db,
+            case_id=case["case_id"],
+            event_type="CASE_CREATED",
+            details=(
+                f"Investigation case created for account "
+                f"{account_number}. "
+                f"Risk level: {risk_analysis['risk_level']}, "
+                f"risk score: {risk_analysis['risk_score']}."
+            ),
         )
 
         return {

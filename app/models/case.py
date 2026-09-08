@@ -41,3 +41,8 @@ class InvestigationCase(Base):
         nullable=False,
         default=datetime.utcnow
     )
+
+    thread_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True
+    )

@@ -1,45 +1,74 @@
 import os
+
 from dotenv import load_dotenv
-from google import genai
+from groq import Groq
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    raise ValueError("GEMINI_API_KEY not found in .env")
+    raise ValueError("GROQ_API_KEY not found in .env")
 
-client = genai.Client(api_key=api_key)
+client = Groq(api_key=api_key)
+
+MODEL = "openai/gpt-oss-120b"
 
 
 def generate_investigation_summary(evidence: dict) -> str:
-
     prompt = f"""
 You are an AI assistant supporting a banking transaction investigation.
 
-Analyze ONLY the evidence provided below.
+Your job is to summarize ONLY the evidence provided below.
 
-Do not invent facts.
-Do not create additional transactions.
-Do not claim that activity is suspicious unless the provided risk analysis
-supports that conclusion.
+STRICT RULES:
+1. Do not invent facts, transactions, policies, thresholds, regulations,
+   or customer information.
+2. Do not refer to "typical alert thresholds", regulatory thresholds,
+   industry thresholds, or external standards.
+3. The risk score and risk level come from the project's risk engine.
+   Treat them as project-generated classifications, NOT regulatory thresholds.
+4. Do not claim that a policy requires or does not require escalation unless
+   that requirement is explicitly stated in the provided policy evidence.
+5. Do not add recommendations that are not supported by the evidence.
+6. Clearly distinguish between:
+   - observed transaction facts
+   - risk-engine findings
+   - policy evidence
+   - recommended next step
+7. If the evidence does not establish something, say that it is not established
+   by the available evidence.
 
-Provide a concise investigation summary explaining:
-1. Customer/account context
-2. Relevant transaction activity
-3. Risk indicators
-4. Relevant policy
-5. Recommended next step
+Provide a concise investigation summary with:
 
-This is a synthetic dataset used for a software project.
+1. Customer/Account Context
+2. Relevant Transaction Activity
+3. Risk Indicators
+4. Relevant Policy
+5. Recommended Next Step
 
-Evidence:
+Use the following evidence:
+
 {evidence}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a careful banking investigation assistant. "
+                    "Ground every statement in the supplied evidence. "
+                    "Never invent facts or external thresholds."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0.1,
     )
 
-    return interaction.output_text
+    return response.choices[0].message.content

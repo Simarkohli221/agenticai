@@ -6,7 +6,7 @@ if __name__ == "__main__":
 
     config = {
         "configurable": {
-            "thread_id": "high-risk-test-002"
+            "thread_id": "high-risk-case-test-002"
         }
     }
 

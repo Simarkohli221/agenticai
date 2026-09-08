@@ -4,7 +4,11 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from app.agent.state import InvestigationState
-from app.agent.routing import route_by_risk, route_after_parsing
+from app.agent.routing import (
+    route_by_risk,
+    route_after_parsing,
+    route_after_customer_lookup,
+)
 from app.agent.nodes import (
     parse_request_node,
     handle_error_node,
@@ -47,7 +51,16 @@ def build_investigation_graph():
     )
 
     graph.add_edge("handle_error", END)
-    graph.add_edge("get_customer", "get_transactions")
+
+    graph.add_conditional_edges(
+        "get_customer",
+        route_after_customer_lookup,
+        {
+            "continue": "get_transactions",
+            "error": "handle_error",
+        }
+    )
+
     graph.add_edge("get_transactions", "search_policy")
     graph.add_edge("search_policy", "analyze_risk")
 

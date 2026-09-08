@@ -1,19 +1,23 @@
-import os
 import json
+import os
+
 from dotenv import load_dotenv
-from google import genai
+from groq import Groq
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GROQ_API_KEY")
 
 if not api_key:
-    raise ValueError("GEMINI_API_KEY not found in .env")
+    raise ValueError("GROQ_API_KEY not found in .env")
 
-client = genai.Client(api_key=api_key)
+client = Groq(api_key=api_key)
+
+MODEL = "openai/gpt-oss-120b"
 
 
 def parse_investigation_request(user_request: str) -> dict:
+
     prompt = f"""
 You are the request parser for a banking transaction investigation system.
 
@@ -26,17 +30,36 @@ Return ONLY valid JSON in this exact format:
 }}
 
 Do not invent an account number.
-If no account number is present, return null.
+
+If no account number is present, return:
+
+{{
+    "account_number": null
+}}
 
 User request:
 {user_request}
 """
 
-    interaction = client.interactions.create(
-        model="gemini-3.6-flash",
-        input=prompt
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Extract structured information from banking "
+                    "investigation requests. Return valid JSON only."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0,
+        response_format={"type": "json_object"},
     )
 
-    result = interaction.output_text.strip()
+    result = response.choices[0].message.content
 
     return json.loads(result)
