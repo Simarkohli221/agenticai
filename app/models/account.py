@@ -28,6 +28,12 @@ class Account(Base):
         nullable=False
     )
 
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="ACTIVE"
+    )
+
     entity = relationship(
         "Entity",
         back_populates="accounts"

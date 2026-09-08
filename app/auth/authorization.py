@@ -39,6 +39,19 @@ def can_approve_case(user: User, case: dict) -> bool:
     return user.role in ROLE_HIERARCHY[SUPERVISOR]
 
 
+def can_manage_account(user: User) -> bool:
+    """
+    Governs the controlled account-status action (including, but not
+    limited to, freezing). Deliberately the same role set as
+    can_approve_case - account status changes are consequential
+    banking actions and this project defines no role beyond
+    SUPERVISOR/ADMIN for them. Kept as its own named function so the
+    policy for account actions can diverge from case-approval policy
+    later without touching call sites.
+    """
+    return user.role in ROLE_HIERARCHY[SUPERVISOR]
+
+
 def audit_authorization_denied(
     db: Session,
     case_id: int,
