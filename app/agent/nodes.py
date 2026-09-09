@@ -238,24 +238,40 @@ def create_case_node(state: dict) -> dict:
     db = SessionLocal()
 
     try:
-        case = create_investigation_case(
-            db=db,
-            account_number=account_number,
-            risk_level=risk_analysis["risk_level"],
-            risk_score=risk_analysis["risk_score"],
-        )
+        # Case creation and its CASE_CREATED audit event are written
+        # as a single atomic local transaction (same commit=False +
+        # explicit db.commit()/db.rollback() pattern established in
+        # Step 8 for approval/account-status changes): either both
+        # persist together, or neither does. This transaction is
+        # opened and closed entirely within this node, before any
+        # later LLM call (generate_report_node) or HITL interrupt.
+        try:
+            case = create_investigation_case(
+                db=db,
+                account_number=account_number,
+                risk_level=risk_analysis["risk_level"],
+                risk_score=risk_analysis["risk_score"],
+                commit=False,
+            )
 
-        create_audit_log(
-            db=db,
-            case_id=case["case_id"],
-            event_type="CASE_CREATED",
-            details=(
-                f"Investigation case created for account "
-                f"{account_number}. "
-                f"Risk level: {risk_analysis['risk_level']}, "
-                f"risk score: {risk_analysis['risk_score']}."
-            ),
-        )
+            create_audit_log(
+                db=db,
+                case_id=case["case_id"],
+                event_type="CASE_CREATED",
+                details=(
+                    f"Investigation case created for account "
+                    f"{account_number}. "
+                    f"Risk level: {risk_analysis['risk_level']}, "
+                    f"risk score: {risk_analysis['risk_score']}."
+                ),
+                commit=False,
+            )
+
+            db.commit()
+
+        except Exception:
+            db.rollback()
+            raise
 
         return {
             "case_id": case["case_id"]

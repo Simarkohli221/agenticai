@@ -16,6 +16,7 @@ def create_investigation_case(
     account_number: str,
     risk_level: str,
     risk_score: int,
+    commit: bool = True,
 ) -> dict:
     case = InvestigationCase(
         account_number=account_number,
@@ -25,8 +26,15 @@ def create_investigation_case(
     )
 
     db.add(case)
-    db.commit()
-    db.refresh(case)
+
+    if commit:
+        db.commit()
+        db.refresh(case)
+    else:
+        # Participating in a transaction the caller owns: flush so
+        # the new row (and its generated case_id) is visible within
+        # it, but leave it open for the caller to commit as a unit.
+        db.flush()
 
     return {
         "case_id": case.case_id,
