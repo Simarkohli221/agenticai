@@ -16,6 +16,12 @@ class InvestigationResponse(BaseModel):
     approval_status: str | None = None
     investigation_report: dict | None = None
     message: str | None = None
+    # Already computed by the graph for this same request (customer
+    # lookup, transaction retrieval) - surfaced here so a UI client
+    # can render them without a second round trip or any new backend
+    # computation. Not persisted; not returned by any other endpoint.
+    customer: dict | None = None
+    transactions: list[dict] | None = None
 
 
 class CaseResponse(BaseModel):

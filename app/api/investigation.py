@@ -61,6 +61,8 @@ def create_investigation(
         approval_required=bool(result.get("approval_required", False)),
         approval_status=result.get("approval_status"),
         investigation_report=result.get("investigation_report"),
+        customer=result.get("customer"),
+        transactions=result.get("transactions"),
         message=(
             "High-risk investigation requires human approval before a "
             "report can be generated."
