@@ -13,6 +13,7 @@ API (which resumes via that real graph object) can resume the
 threads created here.
 """
 
+import os
 import sqlite3
 import uuid
 
@@ -48,8 +49,15 @@ from scripts.create_test_user import (
 
 # Must match app/agent/graph.py exactly - the real API resumes
 # threads via the real investigation_graph, which is bound to this
-# checkpoint file.
-CHECKPOINT_DB_PATH = "D:/Banking_Data/langgraph_checkpoints.db"
+# checkpoint file. Respects the same LANGGRAPH_CHECKPOINT_DB override
+# app/agent/graph.py uses, so an isolated test run (e.g.
+# scripts/test_e2e.py) that points the real graph at a temporary
+# checkpoint file automatically gets this helper pointed at the same
+# file - no test data is written to the production checkpoint DB in
+# that case.
+CHECKPOINT_DB_PATH = os.getenv(
+    "LANGGRAPH_CHECKPOINT_DB", "D:/Banking_Data/langgraph_checkpoints.db"
+)
 
 TEST_ACCOUNT = "8000EBD30"
 

@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 from langgraph.graph import StateGraph, START, END
@@ -90,9 +91,15 @@ def build_investigation_graph():
     graph.add_edge("generate_report", END)
     graph.add_edge("human_approval", "generate_report")
 
-    # SQLite checkpointer
+    # SQLite checkpointer - overridable for test isolation (see
+    # scripts/test_e2e.py); default is unchanged for every existing
+    # caller that doesn't set this environment variable.
+    checkpoint_path = os.getenv(
+        "LANGGRAPH_CHECKPOINT_DB", "D:/Banking_Data/langgraph_checkpoints.db"
+    )
+
     connection = sqlite3.connect(
-        "D:/Banking_Data/langgraph_checkpoints.db",
+        checkpoint_path,
         check_same_thread=False
     )
 
